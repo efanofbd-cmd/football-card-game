@@ -1,0 +1,29 @@
+<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Football Card Game</title>
+<style>:root{--bg:#0f2a1a;--c:#163d26;--t:#f2f7f3;--a:#ffd24a}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--t);padding:12px;max-width:980px;margin:auto}
+button,input{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid #3b7a52;background:var(--c);color:var(--t)}button{cursor:pointer;background:#1f6b3f}button:disabled{opacity:.4}
+.card{display:inline-block;margin:3px;padding:6px 9px;border:2px solid #3b7a52;border-radius:8px;background:var(--c);cursor:pointer;min-width:112px;vertical-align:top}.card.sel{border-color:var(--a);background:#2c5a3c}
+.seat{display:inline-block;margin:4px;padding:10px;min-width:120px;border:1px dashed #3b7a52;border-radius:8px;cursor:pointer}.box{background:var(--c);border-radius:10px;padding:10px;margin:8px 0}
+#log div{padding:2px 0;border-bottom:1px solid #244d33}.big{font-size:22px;color:var(--a)}small{opacity:.8}@media(prefers-color-scheme:light){:root{}}</style></head><body>
+<div id="app"></div><script src="/socket.io/socket.io.js"></script><script>
+const so=io();let S=null,sp=-1,ss=-1,lastKey='';
+so.on('state',s=>{S=s;const k=s.g&&s.g.hand?s.g.hand.P.length+'/'+s.g.hand.S.length+s.g.ph:'';if(k!==lastKey){sp=ss=-1;lastKey=k}draw()});
+so.on('err',m=>alert(m));
+const $=h=>document.getElementById('app').innerHTML=h;
+const join=as=>so.emit('join',{code:v('c'),name:v('n'),as}),v=i=>document.getElementById(i).value;
+const seatClick=(t,p)=>so.emit('seat',{team:t,pos:p});
+function draw(){if(!S)return;const me=S.m.find(x=>x.id===S.me)||{};
+ if(!S.g){let h=`<h2>⚽ রুম ${S.code}</h2><div class=box>`;
+  for(const t of['A','B']){h+=`<div><b>টিম ${t}</b> `;for(const p of['GK','MID','STR']){const o=S.m.find(x=>x.team===t&&x.pos===p);h+=`<span class=seat onclick="seatClick('${t}','${p}')">${p}<br>${o?o.name:'<small>খালি — ক্লিক করুন</small>'}</span>`}h+='</div>'}
+  h+=`</div><div class=box>ভিউয়ার: ${S.m.filter(x=>x.view).map(x=>x.name).join(', ')||'—'}<br>বসেনি: ${S.m.filter(x=>!x.view&&!x.pos).map(x=>x.name).join(', ')||'—'}</div>`;
+  h+=S.host?`<div class=box>সেট সংখ্যা (১ সেট = ৮ রাউন্ড): <input id=sets type=number value=1 min=1 max=20 style=width:70px> <button onclick="so.emit('start',{sets:v('sets')})">খেলা শুরু</button></div>`:'<div class=box>হোস্টের শুরুর অপেক্ষা...</div>';return $(h)}
+ const g=S.g,mine=g.need.includes(S.me),nameOf=id=>{const x=S.m.find(y=>y.id===id);return x?x.team+'-'+x.pos+' '+x.name:id};
+ const msg={tackle:'আক্রমণ-মিড বনাম ট্যাকল-মিড: দুজনেই একটা প্লেয়ার + একটা স্কিল কার্ড দিন',shot:'শট বনাম সেভ: স্ট্রাইকার ও বিপক্ষ গোলকিপার কার্ড দিন (গোলকিপারের স্কিলের লক্ষ্য শটের লক্ষ্যের সাথে মিলতে হবে)',disc:'রাউন্ড শেষ: যারা খেলেননি তারা ১টা প্লেয়ার + ১টা স্কিল ফেলুন',over:'ম্যাচ শেষ'}[g.ph];
+ let h=`<div class=box><span class=big>A ${g.sc.A} : ${g.sc.B} B</span> &nbsp; সেট ${g.set}/${g.sets} · রাউন্ড ${g.round} · বল: টিম ${g.att}<br>${msg}<br><small>অপেক্ষা: ${g.need.map(nameOf).join(', ')||'—'}</small></div>`;
+ if(g.hand){h+=`<div class=box><b>আপনার কার্ড (${me.team}-${me.pos})</b><br>প্লেয়ার:<br>`;
+  g.hand.P.forEach((c,i)=>h+=`<span class="card ${i==sp?'sel':''}" onclick="sp=${i};draw()">${c.name}<br><small>${c.pos} · OVR ${c.ovr}</small></span>`);
+  h+='<br>স্কিল:<br>';g.hand.S.forEach((c,i)=>h+=`<span class="card ${i==ss?'sel':''}" onclick="ss=${i};draw()">${c.name}<br><small>${c.target} · OVR ${c.ovr}</small></span>`);
+  h+=`<br><button ${mine&&sp>=0&&ss>=0?'':'disabled'} onclick="so.emit('play',{pi:sp,si:ss})">${g.ph==='disc'?'ফেলে দিন':'কার্ড খেলুন'}</button> ${mine?'<b>← আপনার পালা</b>':''}</div>`}
+ else h+='<div class=box>আপনি ভিউয়ার — হাতের কার্ড দেখা যায় না, শুধু টেবিল</div>';
+ h+=`<div class=box><b>ফেলা কার্ড (সবার সামনে)</b><div>${g.dis.slice().reverse().map(x=>'<div><small>'+x+'</small></div>').join('')}</div></div><div class=box id=log><b>ম্যাচ লগ</b>${g.log.slice().reverse().map(x=>'<div>'+x+'</div>').join('')}</div>`;$(h)}
+$(`<h2>⚽ ফুটবল কার্ড গেম</h2><div class=box>আপনার নাম: <input id=n><br><br>রুম কোড: <input id=c placeholder="যেমন ABC1"><br><br><button onclick="join('player')">প্লেয়ার হিসেবে ঢুকুন</button> <button onclick="join('viewer')">ভিউয়ার হিসেবে ঢুকুন</button></div>`);
+</script></body></html>
